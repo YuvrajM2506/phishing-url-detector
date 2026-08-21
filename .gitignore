@@ -23,7 +23,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# ML dataset - large file
+# ML dataset
 ml/data/dataset.csv
 
 # Python build files
