@@ -24,4 +24,27 @@ A cybersecurity web application for analyzing, scoring, and explaining suspiciou
 4. **Batch URL Scanner**:
    - Inspect multiple URLs simultaneously with a live progress bar.
 
-5. **Activity History & Export
+5. **Activity History & Export├── src/
+│   ├── components/
+│   │   ├── Navbar.jsx               # Header with live backend connection status
+│   │   ├── UrlScanner.jsx           # Main input bar with paste & format validation
+│   │   ├── RiskGauge.jsx            # SVG Semicircular HUD risk meter (0-100)
+│   │   ├── ScanResults.jsx          # Top-level verdict & recommendations
+│   │   ├── ThreatBreakdown.jsx      # Diagnostic tabs (Flags, DNA, AI summary, JSON)
+│   │   ├── SampleUrls.jsx           # 1-click test scenarios
+│   │   ├── ScanHistory.jsx          # History drawer with JSON/CSV export
+│   │   ├── BatchScanner.jsx         # Multi-URL parallel scanner
+│   │   └── BackendApiDocsModal.jsx  # Flask / FastAPI documentation modal
+│   ├── services/
+│   │   ├── api.js                   # Dual-mode API service with automatic fallback
+│   │   └── heuristicEngine.js       # Client-side rule & feature analysis engine
+│   ├── utils/
+│   │   └── urlParser.js             # Safe URL parsing & Shannon entropy calculation
+│   ├── App.jsx                      # Master layout & state management
+│   ├── index.css                    # Tailwind cyber styling & glow animations
+│   └── main.jsx
+├── .env.example
+├── tailwind.config.js
+└── package.json
+
+6. 
