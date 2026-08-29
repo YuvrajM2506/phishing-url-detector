@@ -1,50 +1,132 @@
-# 🔐 PhishGuard — Phishing URL Threat Detector (React Frontend)
+# PhishGuard — Phishing URL Threat Detector
 
-A cybersecurity web application for analyzing, scoring, and explaining suspicious URLs in real-time. Built with **React 19**, **Vite**, **Tailwind CSS**, and **Lucide Icons**.
+A cybersecurity web application for analyzing, scoring, and explaining suspicious URLs in real time.
+
+Built with **React 19**, **Vite**, **Tailwind CSS**, and **Lucide Icons**.
 
 ---
 
-## 🌟 Features & Capabilities
+## Features
 
-1. **Three-Tier Threat Classification**:
-   - 🟢 **Safe** (Threat Score: 0 – 25)
-   - 🟡 **Suspicious** (Threat Score: 26 – 65)
-   - 🔴 **High Risk / Phishing** (Threat Score: 66 – 100)
+### 1. Three-Tier Threat Classification
 
-2. **In-Depth Threat Breakdown ("Why Was It Flagged?")**:
-   - **Lexical & Host Inspection**: Detects raw IP addresses used as hostnames, `@` basic auth spoofs, double slashes `//` in paths, and excessive hyphens.
-   - **Brand Impersonation & Typosquatting**: Identifies look-alike domains targeting PayPal, Amazon, Google, Microsoft, Apple, Netflix, banks, crypto wallets, and more.
-   - **High-Risk TLDs**: Flags dangerous or disposable top-level domains (`.xyz`, `.top`, `.tk`, `.zip`, `.cfd`, etc.).
-   - **Shannon Entropy**: Measures domain character randomness to detect Domain Generation Algorithms (DGAs).
-   - **Security Protocol**: Identifies unencrypted HTTP links targeting sensitive authentication actions.
+PhishGuard classifies URLs into three threat levels based on their threat score:
 
-3. **1-Click Test Scenarios**:
-   - Built-in Safe, Suspicious, and Phishing preset buttons for rapid demonstrations.
+- **Safe** — Threat Score: 0–25
+- **Suspicious** — Threat Score: 26–65
+- **High Risk / Phishing** — Threat Score: 66–100
 
-4. **Batch URL Scanner**:
-   - Inspect multiple URLs simultaneously with a live progress bar.
+### 2. Threat Breakdown
 
-5. **Activity History & Export├── src/
+The application provides an explanation of why a URL was flagged.
+
+#### Lexical and Host Inspection
+
+Analyzes URL characteristics such as:
+
+- Raw IP addresses used as hostnames
+- `@` symbols used for potential authentication spoofing
+- Double slashes in URL paths
+- Excessive hyphens
+
+#### Brand Impersonation and Typosquatting
+
+Identifies potentially suspicious look-alike domains targeting services and brands such as:
+
+- PayPal
+- Amazon
+- Google
+- Microsoft
+- Apple
+- Netflix
+- Banks
+- Cryptocurrency wallets
+
+#### High-Risk TLD Detection
+
+Checks for potentially suspicious or disposable top-level domains, including:
+
+- `.xyz`
+- `.top`
+- `.tk`
+- `.zip`
+- `.cfd`
+
+#### Shannon Entropy Analysis
+
+Uses Shannon entropy to measure character randomness in domains and identify potentially generated or unusual domain names.
+
+#### Security Protocol Analysis
+
+Identifies unencrypted HTTP URLs, particularly when they appear to involve sensitive authentication-related actions.
+
+---
+
+## 3. Test Scenarios
+
+The application provides preset URLs for quickly demonstrating different threat categories:
+
+- Safe
+- Suspicious
+- Phishing
+
+These allow users to test the application without manually entering URLs.
+
+---
+
+## 4. Batch URL Scanner
+
+Analyze multiple URLs in a single operation.
+
+The batch scanner provides:
+
+- Multiple URL analysis
+- Parallel scanning
+- Live progress indication
+- Individual results for each URL
+
+---
+
+## 5. Activity History and Export
+
+The application maintains a history of previously analyzed URLs.
+
+Supported functionality includes:
+
+- Viewing previous scans
+- Reviewing scan results
+- Exporting scan data as JSON
+- Exporting scan data as CSV
+
+---
+
+## Project Structure
+
+```text
+frontend/
+├── src/
 │   ├── components/
-│   │   ├── Navbar.jsx               # Header with live backend connection status
-│   │   ├── UrlScanner.jsx           # Main input bar with paste & format validation
-│   │   ├── RiskGauge.jsx            # SVG Semicircular HUD risk meter (0-100)
-│   │   ├── ScanResults.jsx          # Top-level verdict & recommendations
-│   │   ├── ThreatBreakdown.jsx      # Diagnostic tabs (Flags, DNA, AI summary, JSON)
-│   │   ├── SampleUrls.jsx           # 1-click test scenarios
-│   │   ├── ScanHistory.jsx          # History drawer with JSON/CSV export
-│   │   ├── BatchScanner.jsx         # Multi-URL parallel scanner
-│   │   └── BackendApiDocsModal.jsx  # Flask / FastAPI documentation modal
+│   │   ├── Navbar.jsx
+│   │   ├── UrlScanner.jsx
+│   │   ├── RiskGauge.jsx
+│   │   ├── ScanResults.jsx
+│   │   ├── ThreatBreakdown.jsx
+│   │   ├── SampleUrls.jsx
+│   │   ├── ScanHistory.jsx
+│   │   ├── BatchScanner.jsx
+│   │   └── BackendApiDocsModal.jsx
+│   │
 │   ├── services/
-│   │   ├── api.js                   # Dual-mode API service with automatic fallback
-│   │   └── heuristicEngine.js       # Client-side rule & feature analysis engine
+│   │   ├── api.js
+│   │   └── heuristicEngine.js
+│   │
 │   ├── utils/
-│   │   └── urlParser.js             # Safe URL parsing & Shannon entropy calculation
-│   ├── App.jsx                      # Master layout & state management
-│   ├── index.css                    # Tailwind cyber styling & glow animations
+│   │   └── urlParser.js
+│   │
+│   ├── App.jsx
+│   ├── index.css
 │   └── main.jsx
+│
 ├── .env.example
 ├── tailwind.config.js
 └── package.json
-
-6. 
