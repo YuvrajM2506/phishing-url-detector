@@ -1,201 +1,569 @@
-import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import UrlScanner from './components/UrlScanner';
-import SampleUrls from './components/SampleUrls';
-import ScanResults from './components/ScanResults';
-import ScanHistory from './components/ScanHistory';
-import BatchScanner from './components/BatchScanner';
-import BackendApiDocsModal from './components/BackendApiDocsModal';
-import { scanUrl, checkBackendStatus } from './services/api';
-import { ShieldCheck, Lock, Activity, Sparkles, Terminal } from 'lucide-react';
+import { useState } from "react";
 
-const STORAGE_KEY = 'phishguard_scan_history_v1';
+import {
+  ShieldCheck,
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Brain,
+  Zap,
+  Info,
+  History,
+  Home,
+  Link,
+} from "lucide-react";
 
-export default function App() {
-  const [currentUrl, setCurrentUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [backendStatus, setBackendStatus] = useState({ online: false, url: '', message: 'Checking...' });
+import "./App.css";
 
-  // Modals & Drawers
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isBatchOpen, setIsBatchOpen] = useState(false);
-  const [isApiDocsOpen, setIsApiDocsOpen] = useState(false);
+function App() {
+  const [url, setUrl] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // Load history from localStorage on initial render
-  useEffect(() => {
+  const checkURL = async () => {
+    if (!url.trim()) {
+      setError("Please enter a URL to analyze.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setHistory(JSON.parse(saved));
+      const response = await fetch(
+        "http://127.0.0.1:8000/predict",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            url: url.trim(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze URL");
       }
-    } catch (e) {
-      console.warn('Failed to load history from localStorage', e);
-    }
-  }, []);
 
-  // Save history helper
-  const saveToHistory = (result) => {
-    const newItem = {
-      id: Date.now(),
-      url: result.cleanUrl || result.url,
-      score: result.score,
-      verdict: result.verdict,
-      category: result.category,
-      timestamp: result.scanTimestamp || new Date().toISOString(),
-    };
+      const data = await response.json();
 
-    setHistory((prev) => {
-      // Prevent consecutive duplicate URLs
-      const filtered = prev.filter((item) => item.url !== newItem.url);
-      const updated = [newItem, ...filtered].slice(0, 50); // Keep last 50
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-  };
+      console.log("Backend response:", data);
 
-  const handleClearHistory = () => {
-    setHistory([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {}
-  };
+      setResult(data);
+    } catch (error) {
+      console.error(error);
 
-  // Check Backend health on mount
-  useEffect(() => {
-    checkBackendStatus().then(setBackendStatus);
-    const interval = setInterval(() => {
-      checkBackendStatus().then(setBackendStatus);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Perform Scan
-  const handleScan = async (urlToScan) => {
-    if (!urlToScan) return;
-    setIsScanning(true);
-    setCurrentUrl(urlToScan);
-
-    try {
-      const result = await scanUrl(urlToScan);
-      setScanResult(result);
-      saveToHistory(result);
-    } catch (err) {
-      console.error('Scan error:', err);
+      setError(
+        "Unable to connect to the backend. Make sure your FastAPI server is running."
+      );
     } finally {
-      setIsScanning(false);
+      setLoading(false);
     }
   };
+
+  const getResultType = () => {
+    if (!result) return "safe";
+
+    if (result.risk_level === "HIGH") {
+      return "danger";
+    }
+
+    if (result.risk_level === "MEDIUM") {
+      return "warning";
+    }
+
+    return "safe";
+  };
+
+  const resultType = getResultType();
+
+  const phishingPercentage =
+    result ? (result.phishing_probability * 100).toFixed(2) : 0;
+
+  const legitimatePercentage =
+    result ? (result.legitimate_probability * 100).toFixed(2) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#07090e] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200">
-      
-      {/* Navigation Header */}
-      <Navbar
-        backendStatus={backendStatus}
-        onOpenApiDocs={() => setIsApiDocsOpen(true)}
-        onOpenBatchScanner={() => setIsBatchOpen(true)}
-        onToggleHistory={() => setIsHistoryOpen(true)}
-        historyCount={history.length}
-      />
+    <div className="app">
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        
-        {/* Scanner Bar */}
-        <UrlScanner
-          onScan={handleScan}
-          isScanning={isScanning}
-          initialUrl={currentUrl}
-        />
+      {/* ================= NAVBAR ================= */}
 
-        {/* Scan Results (If scan completed) */}
-        {scanResult ? (
-          <ScanResults
-            result={scanResult}
-            onRescan={handleScan}
-          />
-        ) : (
-          /* Default state: Quick sample preset cards */
-          <div className="mt-8">
-            <SampleUrls
-              onSelectSample={handleScan}
-              isScanning={isScanning}
-            />
+      <nav className="navbar">
+
+        <div className="brand">
+
+          <div className="brand-icon">
+            <ShieldCheck size={30} />
           </div>
+
+          <div>
+            <h1>PhishGuard</h1>
+            <span>AI-Powered URL Security</span>
+          </div>
+
+        </div>
+
+
+        <div className="nav-links">
+
+          <button className="nav-link active">
+            <Home size={18} />
+            Home
+          </button>
+
+          <button className="nav-link">
+            <History size={18} />
+            History
+          </button>
+
+          <button className="nav-link">
+            <Info size={18} />
+            About
+          </button>
+
+        </div>
+
+      </nav>
+
+
+      {/* ================= MAIN ================= */}
+
+      <main className="main-content">
+
+
+        {/* HERO */}
+
+        <section className="hero">
+
+          <div className="hero-icon">
+            <ShieldCheck size={58} />
+          </div>
+
+          <h2>
+            Check a <span>URL</span> Before You Click
+          </h2>
+
+          <p>
+            Analyze a URL using machine learning and detect potential
+            phishing threats before you visit it.
+          </p>
+
+        </section>
+
+
+        {/* ================= URL CHECKER ================= */}
+
+        <section className="checker-card">
+
+          <div className="input-title">
+            <Link size={22} />
+
+            <label htmlFor="url">
+              Enter a URL
+            </label>
+          </div>
+
+
+          <div className="input-wrapper">
+
+            <Search size={23} />
+
+            <input
+              id="url"
+              type="text"
+              placeholder="https://example.com"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  checkURL();
+                }
+              }}
+            />
+
+          </div>
+
+
+          <button
+            className="check-button"
+            onClick={checkURL}
+            disabled={loading}
+          >
+
+            {loading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Analyzing URL...
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={22} />
+                Check URL
+              </>
+            )}
+
+          </button>
+
+
+          {error && (
+            <div className="error-message">
+              <AlertTriangle size={18} />
+              {error}
+            </div>
+          )}
+
+        </section>
+
+
+        {/* ================= RESULT ================= */}
+
+        {result && (
+
+          <section className={`result-card ${resultType}`}>
+
+
+            {/* RESULT HEADER */}
+
+            <div className="result-header">
+
+              <div className="result-main">
+
+                <div className="result-icon">
+
+                  {resultType === "danger" ? (
+                    <XCircle size={48} />
+                  ) : resultType === "warning" ? (
+                    <AlertTriangle size={48} />
+                  ) : (
+                    <CheckCircle size={48} />
+                  )}
+
+                </div>
+
+
+                <div>
+
+                  <h3>
+
+                    {resultType === "danger"
+                      ? "PHISHING DETECTED"
+                      : resultType === "warning"
+                      ? "SUSPICIOUS URL"
+                      : "LEGITIMATE"}
+
+                  </h3>
+
+                  <p>
+                    Analysis completed
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              <div className="status-badge">
+
+                <ShieldCheck size={18} />
+
+                {resultType === "danger"
+                  ? "Unsafe"
+                  : resultType === "warning"
+                  ? "Use Caution"
+                  : "Safe to Visit"}
+
+              </div>
+
+            </div>
+
+
+            {/* RESULT STATISTICS */}
+
+            <div className="result-grid">
+
+
+              {/* RISK LEVEL */}
+
+              <div className="stat-card">
+
+                <ShieldCheck size={28} />
+
+                <span>
+                  Risk Level
+                </span>
+
+                <strong>
+                  {result.risk_level}
+                </strong>
+
+                <small>
+                  {result.risk_level === "LOW"
+                    ? "Minimal Risk"
+                    : result.risk_level === "MEDIUM"
+                    ? "Moderate Risk"
+                    : "High Risk"}
+                </small>
+
+              </div>
+
+
+              {/* RISK SCORE */}
+
+              <div className="stat-card">
+
+                <div className="stat-icon-blue">
+                  <Info size={28} />
+                </div>
+
+                <span>
+                  Risk Score
+                </span>
+
+                <strong>
+                  {Number(result.risk_score).toFixed(2)}%
+                </strong>
+
+
+                <div className="progress-bar">
+
+                  <div
+                    className="progress-fill risk-progress"
+                    style={{
+                      width: `${Math.min(
+                        result.risk_score,
+                        100
+                      )}%`,
+                    }}
+                  ></div>
+
+                </div>
+
+
+                <small>
+                  {result.risk_level === "LOW"
+                    ? "Very Low Risk"
+                    : result.risk_level === "MEDIUM"
+                    ? "Moderate Risk"
+                    : "High Risk"}
+                </small>
+
+              </div>
+
+
+              {/* PHISHING PROBABILITY */}
+
+              <div className="stat-card">
+
+                <AlertTriangle size={28} />
+
+                <span>
+                  Phishing Probability
+                </span>
+
+                <strong>
+                  {phishingPercentage}%
+                </strong>
+
+
+                <div className="progress-bar">
+
+                  <div
+                    className="progress-fill phishing-progress"
+                    style={{
+                      width: `${phishingPercentage}%`,
+                    }}
+                  ></div>
+
+                </div>
+
+
+                <small>
+                  {phishingPercentage < 25
+                    ? "Very Low"
+                    : phishingPercentage < 60
+                    ? "Moderate"
+                    : "Very High"}
+                </small>
+
+              </div>
+
+
+              {/* LEGITIMATE PROBABILITY */}
+
+              <div className="stat-card">
+
+                <CheckCircle size={28} />
+
+                <span>
+                  Legitimate Probability
+                </span>
+
+                <strong>
+                  {legitimatePercentage}%
+                </strong>
+
+
+                <div className="progress-bar">
+
+                  <div
+                    className="progress-fill legitimate-progress"
+                    style={{
+                      width: `${legitimatePercentage}%`,
+                    }}
+                  ></div>
+
+                </div>
+
+
+                <small>
+                  {legitimatePercentage > 75
+                    ? "Very High"
+                    : legitimatePercentage > 40
+                    ? "Moderate"
+                    : "Low"}
+                </small>
+
+              </div>
+
+            </div>
+
+
+            {/* REASONS */}
+
+            {result.reasons && result.reasons.length > 0 && (
+
+              <div className="reasons">
+
+                <h4>
+                  Why this result?
+                </h4>
+
+
+                <ul>
+
+                  {result.reasons.map(
+                    (reason, index) => (
+
+                      <li key={index}>
+                        {reason}
+                      </li>
+
+                    )
+                  )}
+
+                </ul>
+
+              </div>
+
+            )}
+
+          </section>
+
         )}
 
-        {/* Live Security Feature Highlights */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="p-5 rounded-2xl bg-[#0b0f19] border border-slate-800/80 hover:border-slate-700 transition-all">
-            <div className="w-9 h-9 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mb-3">
-              <ShieldCheck className="w-5 h-5" />
+
+        {/* ================= FEATURES ================= */}
+
+        <section className="features">
+
+
+          <div className="feature-card">
+
+            <div className="feature-icon blue">
+              <Brain size={27} />
             </div>
-            <h3 className="text-sm font-bold text-slate-200 mb-1">Lexical & Heuristic DNA</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Examines IP hostname masking, @ auth characters, high-risk TLDs (.xyz, .top, .zip), and chained subdomains in real-time.
-            </p>
+
+            <div>
+
+              <h3>
+                Machine Learning Detection
+              </h3>
+
+              <p>
+                Analyze URLs using a trained machine
+                learning model built for phishing detection.
+              </p>
+
+            </div>
+
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0b0f19] border border-slate-800/80 hover:border-slate-700 transition-all">
-            <div className="w-9 h-9 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-3">
-              <Activity className="w-5 h-5" />
+
+          <div className="feature-card">
+
+            <div className="feature-icon purple">
+              <ShieldCheck size={27} />
             </div>
-            <h3 className="text-sm font-bold text-slate-200 mb-1">Typosquatting Detection</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Catches deceptive look-alike domains impersonating PayPal, Amazon, Google, Microsoft, Apple, Netflix, and major financial portals.
-            </p>
+
+            <div>
+
+              <h3>
+                Risk Assessment
+              </h3>
+
+              <p>
+                Get a clear risk level, score and
+                probability breakdown for every URL.
+              </p>
+
+            </div>
+
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0b0f19] border border-slate-800/80 hover:border-slate-700 transition-all">
-            <div className="w-9 h-9 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mb-3">
-              <Terminal className="w-5 h-5" />
+
+          <div className="feature-card">
+
+            <div className="feature-icon yellow">
+              <Zap size={27} />
             </div>
-            <h3 className="text-sm font-bold text-slate-200 mb-1">FastAPI / Flask Backend Ready</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Plug-and-play architecture. Runs client heuristics automatically and syncs with your team's Python backend when online.
-            </p>
+
+            <div>
+
+              <h3>
+                Instant Results
+              </h3>
+
+              <p>
+                Receive real-time analysis and insights
+                to stay safer online.
+              </p>
+
+            </div>
+
           </div>
-        </div>
+
+
+        </section>
+
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#06080d] py-6 text-center text-xs text-slate-500 font-mono">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>PhishGuard URL Threat Intelligence Suite</span>
-          </div>
-          <div>
-            Built with React & Tailwind CSS • Backend Ready for Python / Flask / FastAPI
-          </div>
+
+      {/* ================= FOOTER ================= */}
+
+      <footer>
+
+        <div>
+          <ShieldCheck size={18} />
+          <strong>PhishGuard</strong>
+          <span>• AI-Based Phishing URL Detection</span>
         </div>
+
+        <p>
+          Stay safe. <span>Think before you click.</span>
+        </p>
+
       </footer>
-
-      {/* Modals & Slide-overs */}
-      <ScanHistory
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        history={history}
-        onSelectUrl={handleScan}
-        onClearHistory={handleClearHistory}
-      />
-
-      <BatchScanner
-        isOpen={isBatchOpen}
-        onClose={() => setIsBatchOpen(false)}
-        onSelectUrl={handleScan}
-      />
-
-      <BackendApiDocsModal
-        isOpen={isApiDocsOpen}
-        onClose={() => setIsApiDocsOpen(false)}
-      />
 
     </div>
   );
 }
+
+export default App;

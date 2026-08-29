@@ -1,29 +1,50 @@
 from urllib.parse import urlparse, parse_qs
 import re
 import ipaddress
+import math
+from collections import Counter
 
 
 FEATURE_COLUMNS = [
     "url_length",
     "domain_length",
+    "path_length",
+    "query_length",
+
     "num_dots",
     "num_hyphens",
     "num_underscores",
     "num_digits",
     "num_letters",
     "num_special_chars",
+
     "num_subdomains",
     "num_path_segments",
     "num_query_params",
+    "num_query_values",
+
     "num_at_symbols",
     "num_equals",
     "num_ampersands",
+
     "has_ip",
     "has_https",
+
     "num_suspicious_keywords",
+
     "has_url_encoding",
     "has_double_slash_path",
     "has_port",
+
+    "hostname_entropy",
+    "path_entropy",
+    "query_entropy",
+
+    "max_subdomain_length",
+    "max_path_segment_length",
+
+    "has_suspicious_tld",
+    "has_hex_like_token",
 ]
 
 
@@ -46,6 +67,20 @@ SUSPICIOUS_KEYWORDS = [
 ]
 
 
+SUSPICIOUS_TLDS = [
+    ".tk",
+    ".ml",
+    ".ga",
+    ".cf",
+    ".gq",
+    ".top",
+    ".xyz",
+    ".click",
+    ".zip",
+    ".mov",
+]
+
+
 def is_ip_address(hostname):
     if not hostname:
         return 0
@@ -57,16 +92,61 @@ def is_ip_address(hostname):
         return 0
 
 
+def calculate_entropy(value):
+    """
+    Calculate Shannon entropy of a string.
+
+    Higher entropy generally means the string
+    contains more random-looking characters.
+    """
+
+    if not value:
+        return 0.0
+
+    counter = Counter(value)
+
+    length = len(value)
+
+    entropy = 0.0
+
+    for count in counter.values():
+        probability = count / length
+
+        entropy -= probability * math.log2(probability)
+
+    return entropy
+
+
+def detect_hex_token(value):
+    """
+    Detect long hexadecimal-looking strings.
+    """
+
+    if not value:
+        return 0
+
+    pattern = r"[a-fA-F0-9]{16,}"
+
+    return int(bool(re.search(pattern, value)))
+
+
 def extract_features(url):
     """
     Extract URL-only phishing detection features.
-    These features can be calculated without visiting the website.
+
+    These features can be calculated without
+    visiting the website.
     """
 
-    # Add scheme if missing
+    # -----------------------------
+    # Normalize URL
+    # -----------------------------
+
     normalized_url = url.strip()
 
-    if not normalized_url.startswith(("http://", "https://")):
+    if not normalized_url.startswith(
+        ("http://", "https://")
+    ):
         normalized_url = "http://" + normalized_url
 
     parsed = urlparse(normalized_url)
@@ -75,13 +155,18 @@ def extract_features(url):
     path = parsed.path or ""
     query = parsed.query or ""
 
+
     # -----------------------------
-    # Basic character features
+    # Basic features
     # -----------------------------
 
     url_length = len(normalized_url)
 
     domain_length = len(hostname)
+
+    path_length = len(path)
+
+    query_length = len(query)
 
     num_dots = normalized_url.count(".")
 
@@ -104,6 +189,7 @@ def extract_features(url):
         for character in normalized_url
     )
 
+
     # -----------------------------
     # Domain features
     # -----------------------------
@@ -114,6 +200,20 @@ def extract_features(url):
         len(domain_parts) - 2,
         0
     )
+
+    subdomain_parts = (
+        domain_parts[:-2]
+        if len(domain_parts) > 2
+        else []
+    )
+
+    max_subdomain_length = (
+        max(
+            [len(part) for part in subdomain_parts],
+            default=0
+        )
+    )
+
 
     # -----------------------------
     # Path features
@@ -127,6 +227,14 @@ def extract_features(url):
 
     num_path_segments = len(path_segments)
 
+    max_path_segment_length = (
+        max(
+            [len(segment) for segment in path_segments],
+            default=0
+        )
+    )
+
+
     # -----------------------------
     # Query features
     # -----------------------------
@@ -135,9 +243,15 @@ def extract_features(url):
 
     num_query_params = len(query_params)
 
+    num_query_values = sum(
+        len(values)
+        for values in query_params.values()
+    )
+
     num_equals = normalized_url.count("=")
 
     num_ampersands = normalized_url.count("&")
+
 
     # -----------------------------
     # Suspicious characters
@@ -145,13 +259,17 @@ def extract_features(url):
 
     num_at_symbols = normalized_url.count("@")
 
+
     # -----------------------------
     # Security features
     # -----------------------------
 
     has_ip = is_ip_address(hostname)
 
-    has_https = int(parsed.scheme.lower() == "https")
+    has_https = int(
+        parsed.scheme.lower() == "https"
+    )
+
 
     # -----------------------------
     # Suspicious keywords
@@ -165,13 +283,20 @@ def extract_features(url):
         if keyword in url_lower
     )
 
+
     # -----------------------------
     # Encoding
     # -----------------------------
 
     has_url_encoding = int(
-        bool(re.search(r"%[0-9a-fA-F]{2}", normalized_url))
+        bool(
+            re.search(
+                r"%[0-9a-fA-F]{2}",
+                normalized_url
+            )
+        )
     )
+
 
     # -----------------------------
     # Double slash in path
@@ -181,40 +306,132 @@ def extract_features(url):
         "//" in path
     )
 
+
     # -----------------------------
     # Port
     # -----------------------------
 
     try:
-        has_port = int(parsed.port is not None)
+        has_port = int(
+            parsed.port is not None
+        )
     except ValueError:
         has_port = 0
 
+
+    # -----------------------------
+    # Entropy
+    # -----------------------------
+
+    hostname_entropy = calculate_entropy(
+        hostname
+    )
+
+    path_entropy = calculate_entropy(
+        path
+    )
+
+    query_entropy = calculate_entropy(
+        query
+    )
+
+
+    # -----------------------------
+    # Suspicious TLD
+    # -----------------------------
+
+    has_suspicious_tld = int(
+        any(
+            hostname.lower().endswith(tld)
+            for tld in SUSPICIOUS_TLDS
+        )
+    )
+
+
+    # -----------------------------
+    # Hex-like token
+    # -----------------------------
+
+    has_hex_like_token = detect_hex_token(path + query)
+
+
     return {
+
         "url_length": url_length,
+
         "domain_length": domain_length,
+
+        "path_length": path_length,
+
+        "query_length": query_length,
+
         "num_dots": num_dots,
+
         "num_hyphens": num_hyphens,
+
         "num_underscores": num_underscores,
+
         "num_digits": num_digits,
+
         "num_letters": num_letters,
+
         "num_special_chars": num_special_chars,
+
         "num_subdomains": num_subdomains,
+
         "num_path_segments": num_path_segments,
+
         "num_query_params": num_query_params,
+
+        "num_query_values": num_query_values,
+
         "num_at_symbols": num_at_symbols,
+
         "num_equals": num_equals,
+
         "num_ampersands": num_ampersands,
+
         "has_ip": has_ip,
+
         "has_https": has_https,
-        "num_suspicious_keywords": num_suspicious_keywords,
-        "has_url_encoding": has_url_encoding,
-        "has_double_slash_path": has_double_slash_path,
+
+        "num_suspicious_keywords":
+            num_suspicious_keywords,
+
+        "has_url_encoding":
+            has_url_encoding,
+
+        "has_double_slash_path":
+            has_double_slash_path,
+
         "has_port": has_port,
+
+        "hostname_entropy":
+            hostname_entropy,
+
+        "path_entropy":
+            path_entropy,
+
+        "query_entropy":
+            query_entropy,
+
+        "max_subdomain_length":
+            max_subdomain_length,
+
+        "max_path_segment_length":
+            max_path_segment_length,
+
+        "has_suspicious_tld":
+            has_suspicious_tld,
+
+        "has_hex_like_token":
+    has_hex_like_token,
+
     }
 
 
 def features_as_list(url):
+
     features = extract_features(url)
 
     return [
